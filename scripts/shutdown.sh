@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Set these via EC2 instance environment variables or pass them
-S3_BUCKET_NAME="${S3_BUCKET_NAME:-techeazy-app-logs-dev}"
-STAGE="${STAGE:-Dev}"
-INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+BUCKET_NAME="techeazy-app-logs-dev"
 
-# Upload system logs
-aws s3 cp /var/log/cloud-init.log "s3://${S3_BUCKET_NAME}/${STAGE}/system_logs/cloud-init-${INSTANCE_ID}-${TIMESTAMP}.log"
+# Save EC2 system logs
+sudo journalctl > /home/ubuntu/ec2-system.log
+sudo dmesg > /home/ubuntu/ec2-dmesg.log
 
-# Upload app logs if available
-if [ -d /app/logs ]; then
-  aws s3 cp /app/logs "s3://${S3_BUCKET_NAME}/${STAGE}/app_logs/" --recursive
-fi
+# Upload EC2 system logs
+aws s3 cp /home/ubuntu/ec2-system.log s3://$BUCKET_NAME/system-logs/$TIMESTAMP-ec2-system.log
+aws s3 cp /home/ubuntu/ec2-dmesg.log s3://$BUCKET_NAME/system-logs/$TIMESTAMP-dmesg.log
+
+# Upload application log
+aws s3 cp /home/ubuntu/techeazy-devops/app.log s3://$BUCKET_NAME/app-logs/$TIMESTAMP-app.log

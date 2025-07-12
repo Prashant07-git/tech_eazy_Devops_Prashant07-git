@@ -1,0 +1,5 @@
+stage         = "prod"
+instance_type = "t2.small"
+key_name      = "TechEasyKey2"
+bucket_name   = "techeazy-app-logs-prod"
+region        = "ap-south-1"
