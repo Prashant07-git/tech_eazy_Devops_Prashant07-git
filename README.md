@@ -1,108 +1,221 @@
-🚀 EC2 Automation DevOps Project (Spring Boot + AWS CLI + Bash)
-This project automates the deployment of a Spring Boot application on an AWS EC2 instance using Bash scripting and AWS CLI. It installs Java 21, clones a GitHub repo, builds the project, deploys it, and shuts down the instance after a timeout.
+🚀 EC2 App Deployment & Log Upload Automation
+This project automates:
+✅ EC2 deployment of a Spring Boot app
+✅ Uploading application & system logs to S3
+✅ Automatic periodic log upload using a cron job
 
-📁 Folder Structure
-vbnet
+📋 Requirements
+AWS Account Setup
+IAM user with programmatic access (access keys configured on your machine).
+
+IAM user must have at least these permissions:
+
+ec2:*
+
+iam:CreateRole, iam:PassRole, iam:CreateInstanceProfile
+
+s3:*
+
+cloudwatch:Get*, cloudwatch:Put* (optional, if you extend)
+
+AWS CLI configured locally:
+
+bash
 Copy
 Edit
-ec2-automation-devops/
-│
+aws configure
+Local Tools
+✅ Install:
+
+Terraform (>= 1.5.0)
+
+AWS CLI
+
+OpenSSH (to SSH into EC2)
+
+Maven (optional for local builds)
+
+🗂️ Project Structure
+perl
+Copy
+Edit
+.
 ├── Config/
 │   ├── dev_config.sh
 │   └── prod_config.sh
-│
 ├── keys/
-│   └── TechEasyKey.pem
-│
-├── scripts/
-│   └── (Optional future scripts like shutdown.sh)
-│
+│   └── TechEasy3.pem         # Your EC2 keypair file
 ├── terraform/
-│   └── (Optional Terraform files if used)
-│
-├── main.sh
-├── README.md
-├── .gitignore
-⚙️ Prerequisites
-Before running, ensure you have:
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   ├── provider.tf
+│   ├── versions.tf
+│   └── dev.tfvars
+├── deploy.sh                 # Main deployment & SSH script
+└── README.md
+🔷 AWS Resources Created
+S3 bucket: for storing logs
 
-✅ An AWS account and a user with:
+Bucket name: techeazy-app-logs-dev
 
-EC2 Full Access
+Lifecycle rule: deletes logs after 7 days
 
-IAM Role permissions (if planning further enhancements)
+Server-side encryption: AES256
 
-S3 permissions (if extending with logs backup)
+EC2 instance (app server):
 
-✅ AWS CLI installed and configured (aws configure)
+Ubuntu 22.04
 
-✅ Git and Bash installed (WSL, Git Bash, or Linux)
+Runs Spring Boot app
 
-✅ A valid PEM key in keys/ (e.g., TechEasyKey.pem)
+IAM Role attached with AmazonS3FullAccess
 
-✅ Your EC2 key pair name matches the one in config
+Security group allowing: SSH (22), HTTP (80)
 
-✅ Your GitHub Spring Boot repo (e.g., techeazy-devops) is public or accessible
+Cron job:
 
-🔧 Configuration
-Inside Config/, create two config files:
+Uploads logs every minute to S3
 
-✅ dev_config.sh
+Logs stored:
+
+/home/ubuntu/app.log
+
+/var/log/syslog
+
+🔷 IAM Role & Policy
+Terraform automatically creates:
+✅ IAM role for EC2 with trust policy:
+
+json
+Copy
+Edit
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+✅ IAM policy attached: AmazonS3FullAccess
+
+✅ Instance profile: attached to EC2
+
+🚀 How to Deploy
+1️⃣ Prepare variables
+Edit dev.tfvars:
+
+hcl
+Copy
+Edit
+stage         = "dev"
+region        = "ap-south-1"
+key_name      = "TechEasy3"
+bucket_name   = "techeazy-app-logs-dev"
+Make sure Config/dev_config.sh contains:
+
 bash
 Copy
 Edit
-AMI_ID="ami-07a6e3b1c102cdba8"
-INSTANCE_TYPE="t2.micro"
-KEY_NAME="TechEasyKey"
-PEM_FILE="keys/TechEasyKey.pem"
 REGION="ap-south-1"
-APP_PORT=80
-SHUTDOWN_TIMER=600
-GIT_REPO="https://github.com/techeazy-consulting/techeazy-devops.git"
-✅ prod_config.sh
-Change values accordingly if using a different environment.
+KEY_NAME="TechEasy3"
+PEM_FILE="keys/TechEasy3.pem"
+2️⃣ Provision Infrastructure
+bash
+Copy
+Edit
+cd terraform
+terraform init
+terraform apply -var-file="dev.tfvars"
+After apply, note the output:
 
-🏁 How to Run
-Open terminal in the project root and run:
+instance_public_ip
+
+log_server_public_ip
+
+s3_bucket_name
+
+3️⃣ Deploy App & Setup Logs
+Run the deployment script:
 
 bash
 Copy
 Edit
-bash main.sh Dev
-Replace Dev with Prod for production.
+bash deploy.sh Dev
+✅ This script:
 
-🧠 What It Does (Step-by-Step)
-Reads stage config (e.g., dev_config.sh)
+SSH into EC2
 
-Checks for existing EC2 Security Group
+Installs Java, Maven, AWS CLI
 
-Launches a new EC2 instance with the given AMI
+Clones & builds the Spring Boot app
 
-Waits for it to start and fetches public IP
+Runs it on port 80
 
-SSH into instance:
+Creates /home/ubuntu/upload-logs.sh
 
-Installs Java 21 (Adoptium)
+Schedules cron job (crontab -l to verify)
 
-Installs Git & Maven wrapper
+🔷 Verify Logs
+✅ Application is accessible at:
 
-Clones the Git repo
+cpp
+Copy
+Edit
+http://<instance_public_ip>:80
+✅ Logs on S3:
 
-Builds the Spring Boot JAR
+arduino
+Copy
+Edit
+s3://techeazy-app-logs-dev/app_logs/
+s3://techeazy-app-logs-dev/ec2_logs/
+Or list with CLI:
 
-Runs the JAR on port 80
+bash
+Copy
+Edit
+aws s3 ls s3://techeazy-app-logs-dev/app_logs/ --region ap-south-1
+aws s3 ls s3://techeazy-app-logs-dev/ec2_logs/ --region ap-south-1
+🛠️ Notes & Tips
+✅ If logs don’t appear automatically:
 
-Waits 30 seconds and checks if app is reachable
+SSH into instance
 
-Waits for 600 seconds (10 minutes) and stops the instance
+Run crontab -l — ensure cron job is present
 
-📝 Future Improvements
-☁️ Add S3 log upload after shutdown
+Check if cron is active:
 
-🔐 Use IAM Roles instead of SSH
+bash
+Copy
+Edit
+sudo systemctl status cron
+Start if needed:
 
-🧪 Add tests & CI/CD
+bash
+Copy
+Edit
+sudo systemctl start cron
+Run log upload manually:
 
-🌐 Auto assign Elastic IP for persistent DNS
+bash
+Copy
+Edit
+bash /home/ubuntu/upload-logs.sh
+✅ To view cron output:
 
-📦 Dockerize app deployment
+bash
+Copy
+Edit
+cat /home/ubuntu/log-upload-cron.log
+✅ To destroy infrastructure:
+
+bash
+Copy
+Edit
+terraform destroy -var-file="dev.tfvars"
