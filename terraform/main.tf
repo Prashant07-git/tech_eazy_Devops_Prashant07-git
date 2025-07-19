@@ -101,19 +101,5 @@ resource "aws_instance" "app_server" {
   tags = {
     Name = "${var.stage}-Server"
   }
-
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              yum install -y java-21-openjdk maven git
-
-              cd /home/ec2-user
-              git clone https://github.com/techeazy-consulting/techeazy-devops.git
-              cd techeazy-devops
-
-              mvn clean package -DskipTests
-
-              nohup java -jar target/techeazy-devops-0.0.1-SNAPSHOT.jar --server.port=80 > /home/ec2-user/app.log 2>&1 &
-              EOF
 }
 
